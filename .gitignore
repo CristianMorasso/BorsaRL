@@ -1,0 +1,8 @@
+__pycache__/
+video/
+videos/
+wandb/
+lib/
+mujoco/
+Doc/
+img/
