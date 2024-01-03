@@ -95,7 +95,10 @@ class DDPG():
 
         self.q_optimizer = optim.Adam(list(self.qf1.parameters()), lr=args.learning_rate)
         self.actor_optimizer = optim.Adam(list(self.actor.parameters()), lr=args.learning_rate)
-
+        if args.noise_mul_func is None:
+            self.nosie_mul_func = lambda ep:  1-ep/self.args.n_ep
+        else:
+            self.nosie_mul_func = args.noise_mul_func
         
     def select_action(self, obs, noise_mul):
         actions = self.actor(torch.Tensor(obs).to(self.args.device))#.double()
@@ -136,7 +139,7 @@ class DDPG():
 
 
     def training_loop(self):
-        success_th = 70
+        # success_th = 70
         reward_queue =  collections.deque(maxlen=100)
         done_queue =  collections.deque(maxlen=100)
         for ep in range(self.args.n_ep):
@@ -147,8 +150,7 @@ class DDPG():
                 # ALGO LOGIC: put action logic here
             
                 with torch.no_grad():
-                    ep_temp = ep/(self.args.n_ep/5000)
-                    self.noise_mul = (98.5/100)**((ep_temp)/7.5)#(self.args.n_ep-ep)/self.args.n_ep
+                    self.noise_mul = self.nosie_mul_func(ep,self.args.n_ep)
                     actions = self.select_action(obs, self.noise_mul)
                     
 
@@ -179,7 +181,7 @@ class DDPG():
             done_queue.append(terminations)
             if ep % 250 == 0 :
                 print(f"ep={ep}, episodic_return={float(info['episode']['r']):.2}, mean={float(np.mean(reward_queue)):.2}, success_rate={np.mean(done_queue)}")
-            wandb.log({'moving_100_rwg':np.mean(reward_queue),'ep': ep,'noise_mul': self.noise_mul,'ep_length':info["episode"]["l"], 'success_rate':np.mean(done_queue)} )
+            # wandb.log({'moving_100_rwg':np.mean(reward_queue),'ep': ep,'noise_mul': self.noise_mul,'ep_length':info["episode"]["l"], 'success_rate':np.mean(done_queue)} )
             # if np.mean(done_queue) > success_th: 
             #     torch.save(self.actor.state_dict(), f'models/DDPG/actor_{int(np.mean(done_queue))}_{self.args.env_id}_{self.args.seed}.pth')
             #     success_th = np.mean(done_queue)

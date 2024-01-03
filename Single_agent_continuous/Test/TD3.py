@@ -36,6 +36,7 @@ class QNetwork(nn.Module):
         self.fc3 = nn.Linear(256, 1)
 
     def forward(self, x, a):
+        x  =x.view(x.shape[0],-1)
         x = torch.cat([x, a], 1)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
@@ -58,6 +59,7 @@ class Actor(nn.Module):
         )
 
     def forward(self, x):
+        x  =x.view(x.shape[0],-1)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = torch.tanh(self.fc_mu(x))
@@ -99,6 +101,11 @@ class TD3():
         self.q_optimizer2 = optim.Adam(list(self.qf2.parameters()), lr=args.learning_rate)
         self.actor_optimizer = optim.Adam(list(self.actor.parameters()), lr=args.learning_rate)
         self.q_update = 0
+        if args.noise_mul_func is None:
+            self.nosie_mul_func = lambda ep:  1-ep/self.args.n_ep
+        else:
+            self.nosie_mul_func = args.noise_mul_func
+        
         
     def select_action(self, net, obs, noise_mul):
         actions = net(torch.Tensor(obs).double().to(self.args.device))
@@ -155,7 +162,7 @@ class TD3():
 
 
     def training_loop(self):
-        success_th = 70
+        # success_th = 70
         reward_queue =  collections.deque(maxlen=100)
         done_queue = collections.deque(maxlen=100)
         for ep in range(self.args.n_ep):
@@ -167,8 +174,7 @@ class TD3():
                 # ALGO LOGIC: put action logic here
             
                 with torch.no_grad():
-                    ep_temp = ep/(self.args.n_ep/5000)
-                    self.noise_mul = (98.5/100)**((ep_temp)/7.5)#(self.args.n_ep-ep)/self.args.n_ep
+                    self.noise_mul = self.nosie_mul_func(ep,self.args.n_ep)
                     actions = self.select_action(self.actor,obs, self.noise_mul)
                     
 
@@ -199,7 +205,7 @@ class TD3():
             done_queue.append(terminations)
             if ep % 250 == 0 :
                 print(f"ep={ep}, episodic_return={float(info['episode']['r']):.2}, mean={float(np.mean(reward_queue)):.2}, success_rate={np.mean(done_queue)}")
-            wandb.log({'moving_100_rwg':np.mean(reward_queue),'ep': ep,'noise_mul': self.noise_mul,'ep_length':info["episode"]["l"], 'success_rate':np.mean(done_queue)} )
+            # wandb.log({'moving_100_rwg':np.mean(reward_queue),'ep': ep,'noise_mul': self.noise_mul,'ep_length':info["episode"]["l"], 'success_rate':np.mean(done_queue)} )
             # if np.mean(done_queue) > success_th: 
             #     torch.save(self.actor.state_dict(), f'models/TD3/actor_{(np.mean(done_queue))}_{self.args.env_id}_{self.args.seed}.pth')
             #     success_th = np.mean(done_queue)
