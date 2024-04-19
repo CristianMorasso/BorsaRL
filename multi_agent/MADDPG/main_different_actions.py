@@ -49,6 +49,10 @@ if args.env_id == "simple_adversary_v3":
 #         job_type=env_name,
 #         reinit=True
 #     )
+if not os.path.isdir(f"{out_dir}"):
+    os.mkdir(f"{out_dir}")
+if not os.path.isdir(f"{nets_out_dir}"):
+    os.mkdir(f"{nets_out_dir}")
 if not os.path.isdir(f"{nets_out_dir}/{env_name}{params}"):
     os.mkdir(f"{nets_out_dir}/{env_name}{params}")
 import sys
